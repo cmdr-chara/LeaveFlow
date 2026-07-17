@@ -1,6 +1,9 @@
 # LeaveFlow
 
+[English](README.md) | [Italiano](README.it.md)
+
 [![CI](https://github.com/cmdr-chara/LeaveFlow/actions/workflows/ci.yml/badge.svg)](https://github.com/cmdr-chara/LeaveFlow/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-1f789f.svg)](LICENSE)
 
 A full-stack leave management demo built around one practical question: how can employees request time off while managers keep team availability clear at a glance?
 
@@ -161,3 +164,7 @@ The automated suite covers:
 - Demo data can be restored at any time with `python backend/manage.py seed_demo`.
 
 Natural next steps include an audit log, public-holiday calendars, temporary approval delegation, calendar export and SSO.
+
+## License
+
+LeaveFlow is released under the [MIT License](LICENSE).
