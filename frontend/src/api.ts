@@ -1,10 +1,11 @@
 import type { Dashboard, LeaveItem, TeamMember, User } from './types'
+import { t } from './i18n'
 const base = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
 let token = localStorage.getItem('leaveflow_token') || ''
 async function call<T>(path:string, options:RequestInit={}):Promise<T> {
   const response = await fetch(`${base}${path}`, { ...options, headers:{ 'Content-Type':'application/json', ...(token ? { Authorization:`Token ${token}` }:{}), ...options.headers } })
   const body = await response.json().catch(()=>({}))
-  if (!response.ok) throw new Error(body.detail || Object.values(body).flat().join(' ') || 'Qualcosa non ha funzionato.')
+  if (!response.ok) throw new Error(body.detail || Object.values(body).flat().join(' ') || t('errors.generic'))
   return body
 }
 export const api = {
@@ -14,4 +15,5 @@ export const api = {
   team:()=>call<TeamMember[]>('/team/'),
   createRequest:(payload:object)=>call<LeaveItem>('/requests/',{method:'POST',body:JSON.stringify(payload)}),
   decide:(id:number,status:string)=>call<LeaveItem>(`/requests/${id}/decision/`,{method:'POST',body:JSON.stringify({status})}),
+  authorization:()=>token ? `Token ${token}` : '',
 }

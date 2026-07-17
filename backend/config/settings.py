@@ -148,6 +148,8 @@ REST_FRAMEWORK = {
     ],
 }
 
+REDIS_URL = os.getenv('REDIS_URL', '')
+
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
     SECURE_SSL_REDIRECT = True

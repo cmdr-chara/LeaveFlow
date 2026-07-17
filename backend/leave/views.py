@@ -8,6 +8,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from .events import publish_leave_event
 from .models import LeaveRequest, User
 from .serializers import LeaveRequestSerializer, UserSerializer
 
@@ -40,7 +41,8 @@ def requests_view(request):
     if request.method == 'POST':
         serializer = LeaveRequestSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        item = serializer.save()
+        publish_leave_event(item, 'leave.requested', request.user)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
     serializer = LeaveRequestSerializer(visible_requests(request.user), many=True)
     return Response(serializer.data)
@@ -62,6 +64,7 @@ def decide_request(request, request_id):
     item.decided_by = request.user
     item.decided_at = timezone.now()
     item.save(update_fields=['status', 'decided_by', 'decided_at'])
+    publish_leave_event(item, f'leave.{decision}', request.user)
     return Response(LeaveRequestSerializer(item).data)
 
 

@@ -3,10 +3,10 @@ __pycache__/
 *.py[cod]
 *.sqlite3
 .env
-frontend/node_modules/
-frontend/dist/
+
+node_modules/
+dist/
+
 .DS_Store
 .idea/
 .vscode/
-*-dev.log
-*-dev.err.log
