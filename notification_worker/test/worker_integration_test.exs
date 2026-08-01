@@ -33,11 +33,6 @@ defmodule LeaveFlowWorker.WorkerIntegrationTest do
 
     {:ok, "OK"} = Redix.command(redis, ["FLUSHDB"])
 
-    on_exit(fn ->
-      Redix.PubSub.stop(pubsub)
-      GenServer.stop(redis)
-    end)
-
     %{redis: redis, pubsub: pubsub, subscription: subscription}
   end
 
