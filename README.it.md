@@ -48,23 +48,23 @@ Responsabili e amministratori possono confrontare saldi e prossime assenze senza
 - interfaccia responsive con animazioni mirate e supporto a `prefers-reduced-motion`;
 - localizzazione persistente italiano/inglese per date, plurali, ruoli, stati e notifiche;
 - ambiente Docker Compose e CI con GitHub Actions;
-- notifiche event-driven in tempo reale tramite un servizio Node.js autenticato;
+- notifiche event-driven elaborate da un worker supervisionato Elixir/OTP e consegnate tramite un gateway TypeScript autenticato;
 - consumer group Redis Streams, deduplicazione, feed persistenti e health check;
 - log JSON strutturati con correlazione delle richieste, oscuramento dei dati sensibili e arresto controllato.
 
 ## Stack
 
 ```text
-Vue 3 + TypeScript  ──HTTP/Token──>  Django REST Framework  ──ORM──>  PostgreSQL
-       :5173                              :8000                         :5432
-          │                                  │
-          │ REST autenticato + SSE           └──eventi──> Redis Streams
-          ▼                                                  │
-Servizio notifiche Node.js + TypeScript <──consumer group────┘
-                   :3000
+Vue 3 + TypeScript ──HTTP/Token──> Django REST Framework ──ORM──> PostgreSQL
+       :5173                             :8000                      :5432
+          │                                 │
+          │ REST autenticato + SSE          └──eventi──> Redis Streams
+          ▼                                                    │
+Gateway notifiche TypeScript <──Redis Pub/Sub── worker Elixir/OTP
+            :3000                           └──consumer group───┘
 ```
 
-Frontend, backend e worker delle notifiche sono servizi indipendenti. Django pubblica gli eventi di dominio soltanto dopo il completamento della transazione sul database. Il servizio Node.js li consuma tramite un consumer group Redis, deduplica la consegna, conserva un feed limitato per ciascun utente e invia gli aggiornamenti al client Vue tramite Server-Sent Events autenticati. Ogni token del client viene verificato con Django, evitando di mantenere un secondo sistema di identità.
+Frontend, backend, worker e gateway delle notifiche sono servizi indipendenti. Django pubblica gli eventi di dominio soltanto dopo il completamento della transazione sul database. Un processo Elixir/OTP supervisionato li consuma tramite un consumer group Redis, valida ogni evento, deduplica e persiste atomicamente le notifiche, quindi pubblica gli aggiornamenti in tempo reale. Il gateway TypeScript li riceve e li invia al client Vue tramite Server-Sent Events autenticati. Ogni token del client viene verificato con Django, evitando di mantenere un secondo sistema di identità.
 
 Docker Compose avvia tutti i servizi insieme a PostgreSQL e Redis. SQLite resta disponibile per lo sviluppo rapido del backend e per i test; quando `REDIS_URL` non è configurato, la pubblicazione degli eventi viene disattivata senza compromettere il flusso principale di gestione delle assenze.
 
@@ -88,21 +88,21 @@ I responsabili possono esaminare le richieste del proprio team. Gli amministrato
 
 ## Osservabilità
 
-Il servizio Node.js produce log JSON elaborabili automaticamente tramite Pino. Le voci HTTP includono metodo, percorso, stato, tempo di risposta e un `X-Request-Id`; se il client o un reverse proxy fornisce già un request ID, questo viene propagato nella risposta. Gli header di autorizzazione vengono oscurati.
+Il gateway TypeScript produce log JSON elaborabili automaticamente tramite Pino. Le voci HTTP includono metodo, percorso, stato, tempo di risposta e un `X-Request-Id`; se il client o un reverse proxy fornisce già un request ID, questo viene propagato nella risposta. Gli header di autorizzazione vengono oscurati.
 
-I log del worker contengono volutamente gli identificativi degli eventi e delle richieste, non i dati personali dei dipendenti:
+Il worker Elixir è supervisionato da OTP e registra gli identificativi delle entry Redis e i conteggi di consegna, non i dati personali dei dipendenti:
 
-```json
-{"level":30,"service":"leaveflow-notifications","environment":"development","eventId":"7cd631cb-d6aa-4142-bd3d-4acb43ef8e26","eventType":"leave.requested","requestId":51,"recipients":1,"delivered":1,"msg":"Leave event processed"}
+```text
+[info] Processed leave event entry=1748-0 delivered=1
 ```
 
 Per seguire il servizio in locale:
 
 ```powershell
-docker compose logs -f notifications
+docker compose logs -f notification-worker notifications
 ```
 
-`LOG_LEVEL` può essere impostato su `debug`, `info`, `warn` oppure `error`. L'endpoint `/health` restituisce `503` quando Redis non è disponibile, permettendo a Docker o a un orchestratore di non indirizzare traffico verso un'istanza degradata.
+Nel gateway, `LOG_LEVEL` può essere impostato su `debug`, `info`, `warn` oppure `error`. L'endpoint `/health` restituisce `503` quando Redis non è disponibile, permettendo a Docker o a un orchestratore di non indirizzare traffico verso un'istanza degradata.
 
 ## Avvio senza Docker
 
@@ -124,9 +124,15 @@ npm install
 npm run dev
 ```
 
-Servizio notifiche (richiede Redis):
+Worker e gateway delle notifiche (richiedono Redis):
 
 ```powershell
+cd notification_worker
+mix deps.get
+$env:REDIS_URL="redis://localhost:6379"
+mix run --no-halt
+
+# In un secondo terminale:
 cd notifications
 npm install
 $env:REDIS_URL="redis://localhost:6379"
@@ -140,6 +146,10 @@ npm run dev
 .venv\Scripts\python backend\manage.py test leave
 cd frontend
 npm run build
+cd ..\notification_worker
+mix format --check-formatted
+mix test
+mix compile --warnings-as-errors
 cd ..\notifications
 npm run check
 npm test
@@ -149,11 +159,11 @@ npm run build
 La suite automatica copre:
 
 - permessi Django, validazione delle sovrapposizioni, decisioni e instradamento dei destinatari;
-- mapping dello schema delle notifiche, confini di autenticazione e isolamento per utente;
-- deduplicazione dall'evento di dominio fino alla persistenza e alla pubblicazione in memoria;
+- validazione e mapping degli eventi in Elixir, deduplicazione Redis atomica, confini di autenticazione e isolamento per utente;
+- deduplicazione dall'evento di dominio fino alla persistenza e alla pubblicazione Redis Pub/Sub;
 - consegna SSE autenticata tramite un vero server HTTP effimero;
 - health check delle dipendenze degradate e propagazione del request ID;
-- controllo TypeScript rigoroso e build di produzione per Node.js e Vue.
+- formattazione, test e compilazione Elixir con warning trattati come errori, oltre al controllo TypeScript rigoroso e alle build del gateway e di Vue.
 
 ## Ambito e compromessi
 

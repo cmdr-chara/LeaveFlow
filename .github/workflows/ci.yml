@@ -20,6 +20,30 @@ jobs:
         with: { node-version: '24', cache: npm, cache-dependency-path: frontend/package-lock.json }
       - run: npm ci
       - run: npm run build
+  notification-worker:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: notification_worker } }
+    services:
+      redis:
+        image: redis:8-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      REDIS_TEST_URL: redis://localhost:6379/15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '28.4'
+          elixir-version: '1.20.2'
+      - run: mix deps.get
+      - run: mix format --check-formatted
+      - run: mix test
+      - run: mix compile --warnings-as-errors
   notifications:
     runs-on: ubuntu-latest
     defaults: { run: { working-directory: notifications } }

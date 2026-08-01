@@ -2,45 +2,22 @@ import request from 'supertest'
 import { describe, expect, it } from 'vitest'
 
 import { createApp } from '../src/app.js'
-import { leaveEventSchema, notificationsFromEvent } from '../src/domain.js'
+import { notificationSchema } from '../src/domain.js'
 import { NotificationHub } from '../src/hub.js'
 import { createLogger } from '../src/logger.js'
 import { MemoryNotificationStore } from '../src/store.js'
+import { notification } from './fixture.js'
 
 const testLogger = createLogger({ enabled: false })
 
-const event = leaveEventSchema.parse({
-  id: 'd5722e9b-6ec9-4274-85a0-3ebdf32952a2',
-  type: 'leave.approved',
-  occurred_at: '2026-07-17T10:00:00Z',
-  recipients: [7],
-  actor: { id: 2, display_name: 'Mario Manager' },
-  request: {
-    id: 42,
-    employee_id: 7,
-    employee_name: 'Elena Employee',
-    leave_type: 'vacation',
-    start_date: '2026-08-10',
-    end_date: '2026-08-14',
-    status: 'approved',
-  },
-})
-
 describe('notification service', () => {
-  it('maps a leave event to a user notification', () => {
-    const [notification] = notificationsFromEvent(event)
-    expect(notification?.user_id).toBe(7)
-    expect(notification?.title).toBe('Richiesta approvata')
-    expect(notification?.message).toContain('Mario Manager')
-    expect(notification?.actor_name).toBe('Mario Manager')
-    expect(notification?.employee_name).toBe('Elena Employee')
-    expect(notification?.start_date).toBe('2026-08-10')
+  it('validates worker notifications at the gateway boundary', () => {
+    expect(notificationSchema.parse(notification)).toEqual(notification)
+    expect(notificationSchema.safeParse({ id: 'invalid' }).success).toBe(false)
   })
 
   it('returns only notifications for the authenticated user', async () => {
     const store = new MemoryNotificationStore()
-    const [notification] = notificationsFromEvent(event)
-    if (!notification) throw new Error('Expected notification')
     await store.save(notification)
     const app = createApp(
       store,
@@ -88,8 +65,6 @@ describe('notification service', () => {
 
   it('deduplicates notifications by event and recipient', async () => {
     const store = new MemoryNotificationStore()
-    const [notification] = notificationsFromEvent(event)
-    if (!notification) throw new Error('Expected notification')
     expect(await store.save(notification)).toBe(true)
     expect(await store.save(notification)).toBe(false)
   })

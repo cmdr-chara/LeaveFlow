@@ -38,6 +38,16 @@ services:
       db: { condition: service_healthy }
       redis: { condition: service_healthy }
 
+  notification-worker:
+    build:
+      context: .
+      dockerfile: notification_worker/Dockerfile
+    environment:
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis: { condition: service_healthy }
+    restart: unless-stopped
+
   notifications:
     build:
       context: .
@@ -51,6 +61,7 @@ services:
     depends_on:
       backend: { condition: service_started }
       redis: { condition: service_healthy }
+      notification-worker: { condition: service_started }
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/health"]
       interval: 10s

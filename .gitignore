@@ -10,3 +10,6 @@ dist/
 .DS_Store
 .idea/
 .vscode/
+
+notification_worker/_build/
+notification_worker/deps/

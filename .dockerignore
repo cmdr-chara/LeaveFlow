@@ -9,3 +9,5 @@ notifications/node_modules
 notifications/dist
 *-dev.log
 *-dev.err.log
+notification_worker/_build
+notification_worker/deps

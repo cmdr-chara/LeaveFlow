@@ -48,23 +48,23 @@ Managers and administrators can compare balances and upcoming absences without o
 - responsive UI with focused motion and reduced-motion support;
 - persistent Italian/English localization with translated dates, plurals, roles, states and live notifications;
 - Docker Compose environment and GitHub Actions CI;
-- event-driven notifications delivered in real time through an authenticated Node.js service;
+- event-driven notifications processed by a supervised Elixir/OTP worker and delivered through an authenticated TypeScript gateway;
 - Redis Streams consumer groups, deduplication, persisted notification feeds and health checks;
 - structured JSON logs with request correlation, secret redaction and graceful shutdown.
 
 ## Stack
 
 ```text
-Vue 3 + TypeScript  ──HTTP/Token──>  Django REST Framework  ──ORM──>  PostgreSQL
-       :5173                              :8000                         :5432
-          │                                  │
-          │ authenticated REST + SSE         └──events──> Redis Streams
-          ▼                                                  │
-Node.js + TypeScript notification service <──consumer group──┘
-                   :3000
+Vue 3 + TypeScript ──HTTP/Token──> Django REST Framework ──ORM──> PostgreSQL
+       :5173                             :8000                      :5432
+          │                                 │
+          │ authenticated REST + SSE        └──events──> Redis Streams
+          ▼                                                    │
+TypeScript notification gateway <──Redis Pub/Sub── Elixir/OTP worker
+             :3000                          └──consumer group───┘
 ```
 
-The frontend, backend and notification worker are independent services. Django publishes domain events only after a successful database commit. The Node.js service consumes them through a Redis consumer group, deduplicates delivery, keeps a bounded notification feed per user and pushes updates to the Vue client over authenticated Server-Sent Events. It validates every client token against Django instead of maintaining a second identity system.
+The frontend, backend, notification worker and notification gateway are independent services. Django publishes domain events only after a successful database commit. A supervised Elixir/OTP process consumes them through a Redis consumer group, validates each event, atomically deduplicates and persists notifications, then publishes live updates. The TypeScript gateway subscribes to those updates and pushes them to Vue over authenticated Server-Sent Events. It validates every client token against Django instead of maintaining a second identity system.
 
 Docker Compose runs all services with PostgreSQL and Redis. SQLite remains available for quick backend development and tests; when `REDIS_URL` is absent, event publishing is disabled without affecting the core leave workflow.
 
@@ -88,21 +88,21 @@ Managers can review requests for their team. Administrators can also use Django 
 
 ## Observability
 
-The Node.js service emits machine-readable JSON logs through Pino. HTTP entries include method, path, status, response time and an `X-Request-Id`; an existing request ID is propagated across the response when supplied by a client or reverse proxy. Authorization headers are redacted.
+The TypeScript gateway emits machine-readable JSON logs through Pino. HTTP entries include method, path, status, response time and an `X-Request-Id`; an existing request ID is propagated across the response when supplied by a client or reverse proxy. Authorization headers are redacted.
 
-Worker logs deliberately contain event and request identifiers rather than employee details:
+The Elixir worker is supervised by OTP and logs Redis entry identifiers and delivery counts rather than employee details:
 
-```json
-{"level":30,"service":"leaveflow-notifications","environment":"development","eventId":"7cd631cb-d6aa-4142-bd3d-4acb43ef8e26","eventType":"leave.requested","requestId":51,"recipients":1,"delivered":1,"msg":"Leave event processed"}
+```text
+[info] Processed leave event entry=1748-0 delivered=1
 ```
 
 Follow the service locally with:
 
 ```powershell
-docker compose logs -f notifications
+docker compose logs -f notification-worker notifications
 ```
 
-Set `LOG_LEVEL` to `debug`, `info`, `warn` or `error` as needed. The `/health` endpoint returns `503` when Redis is unavailable, allowing Docker or an orchestrator to stop routing traffic to a degraded instance.
+Set the gateway `LOG_LEVEL` to `debug`, `info`, `warn` or `error` as needed. The `/health` endpoint returns `503` when Redis is unavailable, allowing Docker or an orchestrator to stop routing traffic to a degraded instance.
 
 ## Run without Docker
 
@@ -124,9 +124,15 @@ npm install
 npm run dev
 ```
 
-Notification service (requires Redis):
+Notification worker and gateway (require Redis):
 
 ```powershell
+cd notification_worker
+mix deps.get
+$env:REDIS_URL="redis://localhost:6379"
+mix run --no-halt
+
+# In a second terminal:
 cd notifications
 npm install
 $env:REDIS_URL="redis://localhost:6379"
@@ -140,6 +146,10 @@ npm run dev
 .venv\Scripts\python backend\manage.py test leave
 cd frontend
 npm run build
+cd ..\notification_worker
+mix format --check-formatted
+mix test
+mix compile --warnings-as-errors
 cd ..\notifications
 npm run check
 npm test
@@ -149,11 +159,11 @@ npm run build
 The automated suite covers:
 
 - Django permissions, overlap validation, decisions and event recipient routing;
-- notification schema mapping, authentication boundaries and per-user isolation;
-- deduplication from domain event through storage and in-memory publication;
+- Elixir event validation and mapping, atomic Redis deduplication, authentication boundaries and per-user isolation;
+- deduplication from domain event through storage and Redis Pub/Sub publication;
 - authenticated SSE delivery over a real ephemeral HTTP server;
 - degraded dependency health checks and request-ID propagation;
-- strict TypeScript checking plus production builds for both Node.js and Vue.
+- Elixir formatting, tests and warnings-as-errors compilation, plus strict TypeScript checking and production builds for the gateway and Vue.
 
 ## Scope and trade-offs
 
