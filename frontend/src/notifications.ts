@@ -1,6 +1,6 @@
 import { api } from './api'
 
-const base = import.meta.env.VITE_NOTIFICATIONS_URL || 'http://localhost:3000'
+const base = import.meta.env.VITE_NOTIFICATIONS_URL ?? 'http://localhost:3000'
 
 export interface Notification {
   id:string

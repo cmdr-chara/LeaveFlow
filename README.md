@@ -68,6 +68,16 @@ The frontend, backend, notification worker and notification gateway are independ
 
 Docker Compose runs all services with PostgreSQL and Redis. SQLite remains available for quick backend development and tests; when `REDIS_URL` is absent, event publishing is disabled without affecting the core leave workflow.
 
+## Kubernetes deployment
+
+The repository also includes a local Kubernetes deployment under
+[`deploy/k8s`](deploy/k8s). It mirrors the Compose topology with StatefulSets
+for PostgreSQL and Redis, Deployments for the three application services,
+ClusterIP Services, PVCs, init containers, health probes, HPA and disruption
+budgets. Optional overlays add Ingress routing and dependency NetworkPolicies.
+See
+[`deploy/k8s/README.md`](deploy/k8s/README.md) for the Minikube workflow.
+
 ## Run the demo
 
 Docker Desktop is the only prerequisite.

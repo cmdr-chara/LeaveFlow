@@ -1,6 +1,6 @@
 import type { Dashboard, LeaveItem, TeamMember, User } from './types'
 import { t } from './i18n'
-const base = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const base = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
 let token = localStorage.getItem('leaveflow_token') || ''
 async function call<T>(path:string, options:RequestInit={}):Promise<T> {
   const response = await fetch(`${base}${path}`, { ...options, headers:{ 'Content-Type':'application/json', ...(token ? { Authorization:`Token ${token}` }:{}), ...options.headers } })

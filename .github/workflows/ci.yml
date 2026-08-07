@@ -55,3 +55,14 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run build
+  kubernetes-manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+      - name: Validate Kustomize overlays
+        shell: bash
+        run: |
+          for overlay in deploy/k8s deploy/k8s/overlays/ingress deploy/k8s/overlays/secure deploy/k8s/overlays/full; do
+            kubectl kustomize "$overlay" > /dev/null
+          done

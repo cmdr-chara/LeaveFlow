@@ -1,7 +1,10 @@
 from django.contrib.auth import authenticate
+from django.db import connection
 from django.db.models import Count, Q
+from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from django.views.decorators.http import require_GET
 from rest_framework import status
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes
@@ -11,6 +14,18 @@ from rest_framework.response import Response
 from .events import publish_leave_event
 from .models import LeaveRequest, User
 from .serializers import LeaveRequestSerializer, UserSerializer
+
+
+@require_GET
+def health_view(_request):
+    """Return a dependency-aware health response for container probes."""
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute('SELECT 1')
+            cursor.fetchone()
+    except Exception:
+        return JsonResponse({'status': 'degraded'}, status=503)
+    return JsonResponse({'status': 'ok'})
 
 
 @api_view(['POST'])

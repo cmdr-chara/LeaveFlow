@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: leaveflow-config
+data:
+  DJANGO_ALLOWED_HOSTS: "localhost,127.0.0.1,backend,backend.leaveflow.svc.cluster.local,leaveflow.local"
+  CORS_ALLOWED_ORIGINS: "http://leaveflow.local"
+  VITE_API_URL: /api
+  VITE_NOTIFICATIONS_URL: ""
