@@ -4,8 +4,4 @@ kind: Kustomization
 namespace: leaveflow
 
 resources:
-  - ../../base
-  - ingress.yaml
-
-patches:
-  - path: config-ingress.yaml
+  - ../../base/ingress

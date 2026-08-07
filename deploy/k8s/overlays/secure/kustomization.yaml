@@ -4,5 +4,4 @@ kind: Kustomization
 namespace: leaveflow
 
 resources:
-  - ../../base
-  - network-policies.yaml
+  - ../../base/secure
