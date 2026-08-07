@@ -16,6 +16,9 @@ resources:
   - autoscaling.yaml
   - disruption-budgets.yaml
 
-commonLabels:
-  app.kubernetes.io/part-of: leaveflow
-  app.kubernetes.io/managed-by: kustomize
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: leaveflow
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: true
+    includeTemplates: true
