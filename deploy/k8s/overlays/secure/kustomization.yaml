@@ -4,23 +4,5 @@ kind: Kustomization
 namespace: leaveflow
 
 resources:
-  # Reference the base manifests explicitly to avoid a parent-directory cycle.
-  - ../../namespace.yaml
-  - ../../serviceaccount.yaml
-  - ../../configmap.yaml
-  - ../../secret.yaml
-  - ../../postgres.yaml
-  - ../../redis.yaml
-  - ../../backend.yaml
-  - ../../notifications.yaml
-  - ../../frontend.yaml
-  - ../../autoscaling.yaml
-  - ../../disruption-budgets.yaml
+  - ../../base
   - network-policies.yaml
-
-labels:
-  - pairs:
-      app.kubernetes.io/part-of: leaveflow
-      app.kubernetes.io/managed-by: kustomize
-    includeSelectors: true
-    includeTemplates: true

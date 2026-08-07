@@ -4,27 +4,8 @@ kind: Kustomization
 namespace: leaveflow
 
 resources:
-  # Reference the base manifests explicitly. Referencing ../../ would make
-  # the parent kustomization contain this overlay and creates a cycle.
-  - ../../namespace.yaml
-  - ../../serviceaccount.yaml
-  - ../../configmap.yaml
-  - ../../secret.yaml
-  - ../../postgres.yaml
-  - ../../redis.yaml
-  - ../../backend.yaml
-  - ../../notifications.yaml
-  - ../../frontend.yaml
-  - ../../autoscaling.yaml
-  - ../../disruption-budgets.yaml
+  - ../../base
   - ingress.yaml
 
 patches:
   - path: config-ingress.yaml
-
-labels:
-  - pairs:
-      app.kubernetes.io/part-of: leaveflow
-      app.kubernetes.io/managed-by: kustomize
-    includeSelectors: true
-    includeTemplates: true
