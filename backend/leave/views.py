@@ -1,5 +1,5 @@
 from django.contrib.auth import authenticate
-from django.db import connection
+from django.db import connection, transaction
 from django.db.models import Count, Q
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
@@ -67,19 +67,25 @@ def requests_view(request):
 def decide_request(request, request_id):
     if request.user.role not in [User.Role.MANAGER, User.Role.ADMIN]:
         return Response({'detail': 'Operazione non consentita.'}, status=status.HTTP_403_FORBIDDEN)
-    item = get_object_or_404(visible_requests(request.user), pk=request_id)
-    if item.employee_id == request.user.id:
-        return Response({'detail': 'Non puoi decidere una tua richiesta.'}, status=status.HTTP_403_FORBIDDEN)
-    if item.status != LeaveRequest.Status.PENDING:
-        return Response({'detail': 'La richiesta è già stata decisa.'}, status=status.HTTP_409_CONFLICT)
     decision = request.data.get('status')
     if decision not in [LeaveRequest.Status.APPROVED, LeaveRequest.Status.REJECTED]:
         return Response({'detail': 'Decisione non valida.'}, status=status.HTTP_400_BAD_REQUEST)
-    item.status = decision
-    item.decided_by = request.user
-    item.decided_at = timezone.now()
-    item.save(update_fields=['status', 'decided_by', 'decided_at'])
-    publish_leave_event(item, f'leave.{decision}', request.user)
+
+    with transaction.atomic():
+        item = get_object_or_404(
+            visible_requests(request.user).select_for_update(),
+            pk=request_id,
+        )
+        if item.employee_id == request.user.id:
+            return Response({'detail': 'Non puoi decidere una tua richiesta.'}, status=status.HTTP_403_FORBIDDEN)
+        if item.status != LeaveRequest.Status.PENDING:
+            return Response({'detail': 'La richiesta è già stata decisa.'}, status=status.HTTP_409_CONFLICT)
+        item.status = decision
+        item.decided_by = request.user
+        item.decided_at = timezone.now()
+        item.save(update_fields=['status', 'decided_by', 'decided_at'])
+        publish_leave_event(item, f'leave.{decision}', request.user)
+
     return Response(LeaveRequestSerializer(item).data)
 
 
